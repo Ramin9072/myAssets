@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+data/assets.json
+data/history.json
+data/settings.json
+data/last-prices.json
+data/backups/
+*.tmp
