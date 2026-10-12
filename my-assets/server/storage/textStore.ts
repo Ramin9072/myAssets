@@ -1,6 +1,7 @@
 import { mkdir, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { resolve } from 'node:path';
+import { createClient } from 'redis';
 import { StorageError } from '../errors';
 import { atomicWriteFile, readTextIfExists, withLock } from './files';
 
@@ -115,19 +116,74 @@ export class UpstashTextStore implements TextStore {
   }
 }
 
+/** Redis با پروتکل استاندارد (REDIS_URL، مثلاً redis:// یا rediss://). برای Redis Cloud و دیتابیس‌های Redis در Vercel. */
+export class RedisTcpStore implements TextStore {
+  private client: ReturnType<typeof createClient> | null = null;
+  constructor(
+    private url: string,
+    private prefix = 'my-assets:',
+  ) {}
+
+  private async conn() {
+    if (!this.client) {
+      const c = createClient({ url: this.url, socket: { connectTimeout: 5000, reconnectStrategy: (n) => (n > 2 ? new Error('retries exhausted') : 200) } });
+      c.on('error', () => undefined); // خطاها در هر دستور مدیریت می‌شوند
+      this.client = c;
+    }
+    if (!this.client.isOpen) await this.client.connect();
+    return this.client;
+  }
+
+  private async run<T>(fn: (c: ReturnType<typeof createClient>) => Promise<T>): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await fn(await this.conn());
+      } catch {
+        const old = this.client;
+        this.client = null; // اتصال خراب (مثلاً بعد از توقف تابع) → یک بار اتصال تازه
+        old?.disconnect().catch(() => undefined);
+        if (attempt >= 1) throw new StorageError('UNAVAILABLE', 'اتصال به پایگاه داده Redis برقرار نشد؛ REDIS_URL را بررسی کنید.');
+      }
+    }
+  }
+
+  async read(name: string) {
+    checkName(name);
+    return this.run((c) => c.get(this.prefix + name));
+  }
+  async write(name: string, content: string) {
+    checkName(name);
+    await this.run((c) => c.set(this.prefix + name, content));
+  }
+  async remove(name: string) {
+    checkName(name);
+    await this.run((c) => c.del(this.prefix + name));
+  }
+  async list(prefix: string) {
+    const keys = await this.run((c) => c.keys(`${this.prefix}${prefix}*`));
+    return keys.map((k) => k.slice(this.prefix.length));
+  }
+  lock<T>(name: string, fn: () => Promise<T>) {
+    return withLock(`redis-tcp:${name}`, fn);
+  }
+}
+
 export interface StoreChoice {
   store: TextStore;
   /** سقف تعداد ردیف تاریخچه (برای محدودیت اندازه هر مقدار در Redis) */
   maxHistoryEntries?: number;
   kind: 'redis' | 'file';
+  label?: string;
 }
 
 export function createStoreFromEnv(env: Record<string, string | undefined>, fetchImpl: typeof fetch = fetch): StoreChoice {
   const url = env.UPSTASH_REDIS_REST_URL || env.KV_REST_API_URL;
   const token = env.UPSTASH_REDIS_REST_TOKEN || env.KV_REST_API_TOKEN;
   if (url && token) return { store: new UpstashTextStore(url, token, fetchImpl), maxHistoryEntries: 200, kind: 'redis' };
+  const redisUrl = env.REDIS_URL || env.KV_URL;
+  if (redisUrl) return { store: new RedisTcpStore(redisUrl), maxHistoryEntries: 200, kind: 'redis' };
   if (env.VERCEL) {
-    throw new Error('پایگاه داده تنظیم نشده است: در Vercel یک Upstash Redis به پروژه وصل کنید (متغیرهای KV_REST_API_URL و KV_REST_API_TOKEN).');
+    throw new Error('پایگاه داده تنظیم نشده است: در Vercel یک دیتابیس Redis به پروژه وصل کنید (متغیر REDIS_URL، یا KV_REST_API_URL و KV_REST_API_TOKEN).');
   }
   return { store: new FileTextStore(resolve(env.DATA_DIR ?? './data')), kind: 'file' };
 }

@@ -114,6 +114,12 @@ describe('ذخیره‌سازی Upstash Redis', () => {
     expect(createStoreFromEnv({ KV_REST_API_URL: 'https://a', KV_REST_API_TOKEN: 't' }).kind).toBe('redis');
     expect(createStoreFromEnv({ UPSTASH_REDIS_REST_URL: 'https://a', UPSTASH_REDIS_REST_TOKEN: 't' }).kind).toBe('redis');
     expect(createStoreFromEnv({}).kind).toBe('file');
-    expect(() => createStoreFromEnv({ VERCEL: '1' })).toThrow(/Upstash/);
+    expect(() => createStoreFromEnv({ VERCEL: '1' })).toThrow(/Redis/);
+  });
+});
+
+describe('Redis با پروتکل استاندارد (REDIS_URL)', () => {
+  it('اگر REDIS_URL باشد انتخاب می‌شود', () => {
+    expect(createStoreFromEnv({ REDIS_URL: 'redis://localhost:6379' }).kind).toBe('redis');
   });
 });
