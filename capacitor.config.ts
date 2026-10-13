@@ -6,7 +6,7 @@ if (!url || !/^https:\/\//.test(url)) throw new Error('APP_URL (آدرس https �
 export default {
   appId: 'app.myassets.mobile',
   appName: 'دارایی‌های من',
-  webDir: 'dist',
+  webDir: 'dist', 
   server: { url, cleartext: false },
   android: { allowMixedContent: false },
 };
