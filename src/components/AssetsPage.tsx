@@ -192,7 +192,7 @@ export function AssetsPage({ onDirty, notify }: { onDirty: (d: boolean) => void;
                     <button type="button" className="btn tiny" onClick={() => setTexts({ ...texts, [k]: fmtInput(0) })} aria-label={`صفر کردن ${s.label}`}>صفر</button>
                   </div>
                   <span id={`e-${k}`} className="err" role="alert">{errors[k] ?? ''}</span>
-                  {k.endsWith('Pre86') && <span className="hint">برای این مورد، سرویس قیمت فعلی قیمت مستقل ندارد؛ در محاسبه «قیمت نامشخص» می‌شود.</span>}
+                  {k.endsWith('Pre86') && <span className="hint">سرویس قیمت فعلی برای این مورد قیمت ندارد؛ بدون ثبت قیمت دستی در «تنظیمات»، «قیمت نامشخص» می‌شود.</span>}
                   {k === 'goldGrams' && <span className="hint">وزن بر حسب گرم؛ عیار در «تنظیمات» انتخاب می‌شود (پیش‌فرض ۱۸).</span>}
                 </div>
               );

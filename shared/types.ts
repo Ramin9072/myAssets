@@ -41,7 +41,23 @@ export interface PriceQuote {
   /** true اگر قیمت از قیمت سایر عیارها محاسبه شده باشد (نه قیمت مستقیم بازار) */
   derived: boolean;
   note: string | null;
+  /** منبع قیمت: سرویس یا ثبت دستی کاربر (رکوردهای قدیمی بدون این فیلد = سرویس) */
+  source?: 'provider' | 'manual';
+  /** زمان ثبت قیمت دستی */
+  enteredAt?: string | null;
 }
+
+/** قیمت‌هایی که کاربر می‌تواند دستی ثبت کند (فقط سکه‌ها؛ دلار و طلا همیشه از سرویس می‌آیند) */
+export const MANUAL_KEYS = ['coinFullPre86', 'coinHalfPre86', 'coinQuarterPre86', 'coinFull', 'coinHalf', 'coinQuarter'] as const;
+export type ManualKey = (typeof MANUAL_KEYS)[number];
+
+export interface ManualPrice {
+  rial: string;
+  raw: number;
+  rawUnit: PriceUnit;
+  enteredAt: string;
+}
+export type ManualPrices = Partial<Record<ManualKey, ManualPrice>>;
 
 export type ItemStatus = 'priced' | 'unknown' | 'empty';
 

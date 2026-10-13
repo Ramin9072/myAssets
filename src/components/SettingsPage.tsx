@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { GOLD_KARATS, type ConnectionStatus, type MetaResponse, type Settings } from '../../shared/types';
 import { api } from '../api';
 import { fmtDateTime } from '../format';
+import { ManualPricesPanel } from './ManualPricesPanel';
 import { Badge, type ToastState } from './ui';
 
 export function SettingsPage({ notify }: { notify: (t: ToastState) => void }) {
@@ -114,6 +115,8 @@ export function SettingsPage({ notify }: { notify: (t: ToastState) => void }) {
         )}
         <p className="muted small">منبع داده: <a href={provider.sourceUrl} target="_blank" rel="noreferrer noopener">{provider.attribution}</a></p>
       </section>
+
+      <ManualPricesPanel notify={notify} />
 
       <section className="panel">
         <h3>اتصال به API</h3>

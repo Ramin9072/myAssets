@@ -8,7 +8,7 @@ import { checkConsistency } from '../server/domain/sanity';
 import { SAMPLE_ASSETS } from './helpers';
 
 const q = (key: PriceKey, rial: string | null): PriceQuote => ({
-  priceKey: key, available: rial !== null, unitPriceRial: rial, rawValue: null, rawUnit: null, derived: false, note: null,
+  priceKey: key, available: rial !== null, unitPriceRial: rial, rawValue: null, rawUnit: null, derived: false, note: null, source: 'provider', enteredAt: null,
 });
 const quotes = (o: Partial<Record<PriceKey, string | null>>) => {
   const keys: PriceKey[] = ['coinFull', 'coinFullPre86', 'coinHalf', 'coinHalfPre86', 'coinQuarter', 'coinQuarterPre86', 'usd', 'gold'];

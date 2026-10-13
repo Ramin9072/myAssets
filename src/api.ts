@@ -7,6 +7,8 @@ import type {
   HistorySummary,
   MetaResponse,
   Settings,
+  ManualPrices,
+  PriceUnit,
 } from '../shared/types';
 
 export class ApiError extends Error {
@@ -65,6 +67,8 @@ export const api = {
   saveAssets: (assets: Assets, baseRevision: string) => request<AssetsResponse>('PUT', '/api/assets', { assets, baseRevision }),
   getBackup: () => request<BackupFile>('GET', '/api/assets/backup'),
   restore: (backup: unknown) => request<AssetsResponse>('POST', '/api/assets/restore', { backup, confirmed: true }),
+  getManual: () => request<{ prices: ManualPrices }>('GET', '/api/manual-prices'),
+  saveManual: (prices: Record<string, { value: number; unit: PriceUnit } | null>) => request<{ prices: ManualPrices }>('PUT', '/api/manual-prices', { prices }),
   getSettings: () => request<Settings>('GET', '/api/settings'),
   saveSettings: (s: Settings) => request<Settings>('PUT', '/api/settings', s),
   status: () => request<ConnectionStatus>('GET', '/api/prices/status'),

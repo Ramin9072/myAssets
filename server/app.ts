@@ -5,6 +5,9 @@ import { createAuth, type AuthOptions } from './auth';
 import { validateAssetsObject } from '../shared/assetSpecs';
 import type { MetaResponse, NormalizedSnapshot, ProviderInfo } from '../shared/types';
 import { ApiError, PriceError, StorageError } from './errors';
+import { buildManualPrice, checkManualAgainst, isManualKey } from './domain/manual';
+import { InvalidPriceError } from './domain/money';
+import type { ManualPrices } from '../shared/types';
 import { DEFAULT_PRICE_API_BASE_URL, createProviders } from './providers';
 import type { PriceProvider } from './providers/types';
 import { runCalculation } from './services/calculationService';
@@ -48,6 +51,7 @@ export async function createApp(opts: AppOptions) {
   const history = new HistoryStore(store, opts.maxHistoryEntries);
   const settings = new SettingsStore(store);
   const lastValid = new JsonDoc<NormalizedSnapshot>(store, 'last-prices.json');
+  const manual = new JsonDoc<{ version: 1; prices: ManualPrices }>(store, 'manual-prices.json');
   const auth = createAuth(opts.auth ?? {}, now);
   const prices = new PriceService({
     providers,
@@ -118,6 +122,33 @@ export async function createApp(opts: AppOptions) {
     res.json(await assets.restore(parsed.assets));
   }));
 
+  api.get('/manual-prices', wrap(async (_req, res) => { res.json({ prices: (await manual.read())?.prices ?? {} }); }));
+
+  // ثبت/حذف قیمت دستی؛ کلیدهای ارسال‌نشده بدون تغییر می‌مانند، مقدار null یعنی حذف
+  api.put('/manual-prices', wrap(async (req, res) => {
+    const input = req.body?.prices;
+    if (typeof input !== 'object' || input === null || Array.isArray(input)) throw new ApiError(400, 'INVALID_MANUAL', 'ساختار قیمت‌های دستی نامعتبر است.');
+    const current: ManualPrices = { ...((await manual.read())?.prices ?? {}) };
+    const ref = (await prices.getCached())?.prices;
+    const errors: string[] = [];
+    for (const [key, v] of Object.entries(input as Record<string, unknown>)) {
+      if (!isManualKey(key)) { errors.push(`کلید نامعتبر: ${key}`); continue; }
+      if (v === null) { delete current[key]; continue; }
+      try {
+        const o = v as { value?: unknown; unit?: unknown };
+        const mp = buildManualPrice(o.value, o.unit, now());
+        const problem = checkManualAgainst(key, mp, ref);
+        if (problem) errors.push(`${key}: ${problem}`); else current[key] = mp;
+      } catch (e) {
+        if (!(e instanceof InvalidPriceError)) throw e;
+        errors.push(`${key}: ${e.message}`);
+      }
+    }
+    if (errors.length) throw new ApiError(400, 'INVALID_MANUAL', errors.join(' '), { errors });
+    await manual.write({ version: 1, prices: current });
+    res.json({ prices: current });
+  }));
+
   api.get('/settings', wrap(async (_req, res) => { res.json(await settings.read()); }));
 
   api.put('/settings', wrap(async (req, res) => {
@@ -141,7 +172,7 @@ export async function createApp(opts: AppOptions) {
   api.post('/calculate', wrap(async (req, res) => {
     const mode = req.body?.mode === 'cached' ? 'cached' : 'live';
     const acceptStale = req.body?.acceptStale === true;
-    res.json(await runCalculation({ assets, history, settings, prices, now }, { mode, acceptStale }));
+    res.json(await runCalculation({ assets, history, settings, prices, manual, now }, { mode, acceptStale }));
   }));
 
   api.get('/history', wrap(async (_req, res) => { res.json(await history.list()); }));
