@@ -17,7 +17,8 @@ export function ResultView({ entry }: { entry: HistoryEntry }) {
   const st = STATUS_TEXT[entry.priceStatus];
   const priceAge = entry.observedAt ? Math.max(0, Math.round((Date.parse(entry.calculatedAt) - Date.parse(entry.observedAt)) / 60000)) : null;
   const totalCoins = COIN_KEYS.reduce((s, k) => s + entry.assets[k], 0);
-  const noted = result.items.filter((i) => entry.quotes[ASSET_SPECS[i.key].priceKey].note && (i.status === 'unknown' || entry.quotes[ASSET_SPECS[i.key].priceKey].derived));
+  const manualItems = result.items.filter((i) => entry.quotes[ASSET_SPECS[i.key].priceKey].source === 'manual' && i.status !== 'empty');
+  const noted = result.items.filter((i) => entry.quotes[ASSET_SPECS[i.key].priceKey].note && (i.status === 'unknown' || entry.quotes[ASSET_SPECS[i.key].priceKey].derived || entry.quotes[ASSET_SPECS[i.key].priceKey].source === 'manual'));
 
   return (
     <div className="result">
@@ -39,6 +40,11 @@ export function ResultView({ entry }: { entry: HistoryEntry }) {
         {!result.complete && (
           <p className="alert bad">
             این عدد جمع قطعی نیست؛ قیمت برخی دارایی‌ها در دسترس نبود و صفر فرض نشده است (در جدول «قیمت نامشخص» دیده می‌شود).
+          </p>
+        )}
+        {manualItems.length > 0 && (
+          <p className="alert warn">
+            {fmtQty(manualItems.length)} قلم با <b>قیمت دستی</b> محاسبه شده است ({manualItems.map((i) => i.label).join('، ')}). این قیمت‌ها را خودتان ثبت کرده‌اید و از سرویس نیامده‌اند.
           </p>
         )}
         {entry.priceStatus !== 'fresh' && (
@@ -108,13 +114,13 @@ export function ResultView({ entry }: { entry: HistoryEntry }) {
                     <td data-label="دارایی">{label}</td>
                     <td data-label="مقدار ثبت‌شده">{fmtQty(i.quantity)} {i.unit}</td>
                     <td data-label="قیمت هر واحد (ریال)">
-                      {quote.available ? <>{fmtUnitPrice(quote.unitPriceRial)}{quote.derived && <small className="muted"> (محاسبه‌شده)</small>}</> : <span className="unknown">قیمت نامشخص</span>}
+                      {quote.available ? <>{fmtUnitPrice(quote.unitPriceRial)}{quote.derived && <small className="muted"> (محاسبه‌شده)</small>}{quote.source === 'manual' && <small className="muted"> (دستی)</small>}</> : <span className="unknown">قیمت نامشخص</span>}
                     </td>
                     <td data-label="ارزش کل (ریال)">
                       {i.status === 'unknown' ? <span className="unknown">قیمت نامشخص</span> : fmtMoney(i.valueRial)}
                     </td>
-                    <td data-label="زمان به‌روزرسانی قیمت">{quote.available ? fmtDateTime(entry.observedAt) : '—'}</td>
-                    <td data-label="منبع قیمت">{quote.available ? <>{entry.provider.attribution}{i.key === 'usd' ? (entry.dollarMarket === 'free' ? ' (بازار آزاد)' : ' (نرخ رسمی)') : ''}</> : '—'}</td>
+                    <td data-label="زمان به‌روزرسانی قیمت">{quote.available ? fmtDateTime(quote.source === 'manual' ? quote.enteredAt : entry.observedAt) : '—'}</td>
+                    <td data-label="منبع قیمت">{quote.source === 'manual' && quote.available ? 'دستی (ثبت توسط شما)' : quote.available ? <>{entry.provider.attribution}{i.key === 'usd' ? (entry.dollarMarket === 'free' ? ' (بازار آزاد)' : ' (نرخ رسمی)') : ''}</> : '—'}</td>
                   </tr>
                 );
               })}

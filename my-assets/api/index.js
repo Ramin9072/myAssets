@@ -42247,106 +42247,9 @@ function validateAssetsObject(value) {
   return errors.length ? { ok: false, errors } : { ok: true, assets: out };
 }
 
-// server/providers/nerkhsanj.ts
-var import_jalaali_js = __toESM(require_jalaali_js(), 1);
-
-// server/providers/http.ts
-var MAX_BYTES = 2e6;
-async function fetchJson(url, o) {
-  const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), o.timeoutMs);
-  try {
-    const res = await o.fetchImpl(url, { signal: ac.signal, headers: { Accept: "application/json", ...o.headers } });
-    if (!res.ok) throw new PriceError("HTTP", `\u0633\u0631\u0648\u06CC\u0633 \u0642\u06CC\u0645\u062A \u0628\u0627 \u06A9\u062F ${res.status} \u067E\u0627\u0633\u062E \u062F\u0627\u062F.`, res.status >= 500 || res.status === 429);
-    const text = await res.text();
-    if (text.length > MAX_BYTES) throw new PriceError("INVALID_RESPONSE", "\u067E\u0627\u0633\u062E \u0633\u0631\u0648\u06CC\u0633 \u0628\u06CC\u0634 \u0627\u0632 \u062D\u062F \u0628\u0632\u0631\u06AF \u0627\u0633\u062A.");
-    try {
-      return JSON.parse(text);
-    } catch {
-      throw new PriceError("INVALID_RESPONSE", "\u067E\u0627\u0633\u062E \u0633\u0631\u0648\u06CC\u0633 JSON \u0645\u0639\u062A\u0628\u0631 \u0646\u06CC\u0633\u062A.");
-    }
-  } catch (e) {
-    if (e instanceof PriceError) throw e;
-    if (ac.signal.aborted) throw new PriceError("TIMEOUT", "\u0645\u0647\u0644\u062A \u067E\u0627\u0633\u062E\u200C\u06AF\u0648\u06CC\u06CC \u0633\u0631\u0648\u06CC\u0633 \u0642\u06CC\u0645\u062A \u062A\u0645\u0627\u0645 \u0634\u062F.", true);
-    throw new PriceError("NETWORK", "\u0627\u062A\u0635\u0627\u0644 \u0628\u0647 \u0633\u0631\u0648\u06CC\u0633 \u0642\u06CC\u0645\u062A \u0628\u0631\u0642\u0631\u0627\u0631 \u0646\u0634\u062F.", true);
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-// server/providers/nerkhsanj.ts
-var jalaali = import_jalaali_js.default;
-var NERKHSANJ_KEY_MAP = {
-  coinFull: "bahar",
-  coinHalf: "half",
-  coinQuarter: "quarter",
-  usd: "dollar",
-  gold18: "gold",
-  gold24: "gold24"
-};
-var PRE86_REASON = "\u0627\u06CC\u0646 \u0633\u0631\u0648\u06CC\u0633 \u0642\u06CC\u0645\u062A \u0645\u0633\u062A\u0642\u0644 \u0628\u0631\u0627\u06CC \u0637\u0631\u062D \xAB\u0642\u0628\u0644 \u0627\u0632 \u06F1\u06F3\u06F8\u06F6\xBB \u0627\u0631\u0627\u0626\u0647 \u0646\u0645\u06CC\u200C\u062F\u0647\u062F\u061B \u0642\u06CC\u0645\u062A \u0637\u0631\u062D \u0645\u0639\u0645\u0648\u0644\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u0622\u0646 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F.";
-var TEHRAN_OFFSET_MIN = 210;
-function parseLiveResponse(body) {
-  if (typeof body !== "object" || body === null) throw new PriceError("INVALID_RESPONSE", "\u0633\u0627\u062E\u062A\u0627\u0631 \u067E\u0627\u0633\u062E \u0633\u0631\u0648\u06CC\u0633 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A.");
-  const b = body;
-  const rates = b.rates;
-  if (typeof rates !== "object" || rates === null || Array.isArray(rates)) {
-    throw new PriceError("INVALID_RESPONSE", "\u067E\u0627\u0633\u062E \u0633\u0631\u0648\u06CC\u0633 \u0641\u0627\u0642\u062F \u0628\u062E\u0634 rates \u0627\u0633\u062A.");
-  }
-  const date = typeof b.date === "string" ? /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/.exec(b.date) : null;
-  if (!date) throw new PriceError("INVALID_RESPONSE", "\u062A\u0627\u0631\u06CC\u062E \u067E\u0627\u0633\u062E \u0633\u0631\u0648\u06CC\u0633 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A.");
-  const [jy, jm, jd] = [Number(date[1]), Number(date[2]), Number(date[3])];
-  if (!jalaali.isValidJalaaliDate(jy, jm, jd)) throw new PriceError("INVALID_RESPONSE", "\u062A\u0627\u0631\u06CC\u062E \u0634\u0645\u0633\u06CC \u067E\u0627\u0633\u062E \u0633\u0631\u0648\u06CC\u0633 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A.");
-  const { gy, gm, gd } = jalaali.toGregorian(jy, jm, jd);
-  const timeStr = typeof b.time === "string" ? b.time.trim() : "";
-  let hh = 0;
-  let mm = 0;
-  let marketClosed = true;
-  if (timeStr !== "") {
-    const t = /^(\d{1,2}):(\d{2})$/.exec(timeStr);
-    if (!t || Number(t[1]) > 23 || Number(t[2]) > 59) throw new PriceError("INVALID_RESPONSE", "\u0633\u0627\u0639\u062A \u067E\u0627\u0633\u062E \u0633\u0631\u0648\u06CC\u0633 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A.");
-    hh = Number(t[1]);
-    mm = Number(t[2]);
-    marketClosed = false;
-  }
-  const observedAt = new Date(Date.UTC(gy, gm - 1, gd, hh, mm) - TEHRAN_OFFSET_MIN * 6e4).toISOString();
-  const r = rates;
-  const prices = {};
-  for (const [ourKey, theirKey] of Object.entries(NERKHSANJ_KEY_MAP)) {
-    const v = r[theirKey];
-    if (typeof v === "number" && Number.isFinite(v) && v > 0) {
-      prices[ourKey] = { value: v, unit: "toman" };
-    }
-  }
-  return { observedAt, marketClosed, usdMarket: "free", prices };
-}
-function createNerkhsanjProvider(opts) {
-  const base = opts.baseUrl.replace(/\/+$/, "");
-  return {
-    id: "nerkhsanj",
-    name: "\u0646\u0631\u062E\u200C\u0633\u0646\u062C (Nerkhsanj)",
-    sourceUrl: `${base}/data/live.json`,
-    attribution: "\u0646\u0631\u062E\u200C\u0633\u0646\u062C",
-    description: "\u0633\u0631\u0648\u06CC\u0633 \u0631\u0627\u06CC\u06AF\u0627\u0646 \u0648 \u0628\u062F\u0648\u0646 \u06A9\u0644\u06CC\u062F\u061B \u0646\u0631\u062E \u0628\u0627\u0632\u0627\u0631 \u0622\u0632\u0627\u062F \u062A\u0647\u0631\u0627\u0646 \u0628\u0647 \u062A\u0648\u0645\u0627\u0646\u060C \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0647\u0631 \u062F\u0642\u06CC\u0642\u0647. \u062D\u062F\u0627\u06A9\u062B\u0631 \u062F\u0642\u06CC\u0642\u0647\u200C\u0627\u06CC \u06CC\u06A9\u200C\u0628\u0627\u0631 \u0627\u0632 \u0622\u0646 \u0628\u062E\u0648\u0627\u0646\u06CC\u062F \u0648 \u0645\u0646\u0628\u0639 \u0631\u0627 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0647\u06CC\u062F.",
-    supportedUsdMarkets: ["free"],
-    declaredUnit: "toman",
-    unavailable: {
-      coinFullPre86: PRE86_REASON,
-      coinHalfPre86: PRE86_REASON,
-      coinQuarterPre86: PRE86_REASON
-    },
-    async fetch(ctx) {
-      const body = await fetchJson(`${base}/data/live.json`, ctx);
-      return parseLiveResponse(body);
-    }
-  };
-}
-
-// server/providers/index.ts
-var DEFAULT_PRICE_API_BASE_URL = "https://nerkh.jahankhahan.shop";
-function createProviders(env = {}) {
-  return [createNerkhsanjProvider({ baseUrl: env.PRICE_API_BASE_URL?.trim() || DEFAULT_PRICE_API_BASE_URL })];
-}
+// shared/types.ts
+var MANUAL_KEYS = ["coinFullPre86", "coinHalfPre86", "coinQuarterPre86", "coinFull", "coinHalf", "coinQuarter"];
+var GOLD_KARATS = [24, 22, 21, 18, 14];
 
 // node_modules/decimal.js/decimal.mjs
 var EXP_LIMIT = 9e15;
@@ -44543,6 +44446,133 @@ function rialToToman(rial) {
   return new D(rial).dividedBy(10).toDecimalPlaces(0, decimal_default.ROUND_HALF_UP);
 }
 
+// server/domain/manual.ts
+var isManualKey = (k) => MANUAL_KEYS.includes(k);
+var MAX_RAW = 1e13;
+function buildManualPrice(value, unit, now) {
+  if (unit !== "toman" && unit !== "rial") throw new InvalidPriceError("\u0648\u0627\u062D\u062F \u0642\u06CC\u0645\u062A \u0628\u0627\u06CC\u062F \u062A\u0648\u0645\u0627\u0646 \u06CC\u0627 \u0631\u06CC\u0627\u0644 \u0628\u0627\u0634\u062F.");
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0 || value > MAX_RAW) {
+    throw new InvalidPriceError("\u0642\u06CC\u0645\u062A \u0628\u0627\u06CC\u062F \u06CC\u06A9 \u0639\u062F\u062F \u0635\u062D\u06CC\u062D \u0645\u062B\u0628\u062A \u0628\u0627\u0634\u062F.");
+  }
+  return { rial: toRial(value, unit).toFixed(), raw: value, rawUnit: unit, enteredAt: now.toISOString() };
+}
+var SAME_TYPE = {
+  coinFullPre86: "coinFull",
+  coinHalfPre86: "coinHalf",
+  coinQuarterPre86: "coinQuarter"
+};
+function checkManualAgainst(key, price, prices) {
+  const ref = SAME_TYPE[key];
+  const refPrice = ref ? prices?.[ref] : void 0;
+  if (!refPrice) return null;
+  const ratio = new D(price.rial).dividedBy(refPrice.rial);
+  if (ratio.lt(0.5) || ratio.gt(2)) {
+    return `\u0642\u06CC\u0645\u062A \u0648\u0627\u0631\u062F\u0634\u062F\u0647 ${ratio.toDecimalPlaces(2).toString()} \u0628\u0631\u0627\u0628\u0631 \u0642\u06CC\u0645\u062A \u0633\u06A9\u0647 \u0647\u0645\u200C\u0646\u0648\u0639 \u062F\u0631 \u0633\u0631\u0648\u06CC\u0633 \u0627\u0633\u062A\u061B \u0627\u062D\u062A\u0645\u0627\u0644\u0627\u064B \u0648\u0627\u062D\u062F (\u0631\u06CC\u0627\u0644/\u062A\u0648\u0645\u0627\u0646) \u06CC\u0627 \u062A\u0639\u062F\u0627\u062F \u0635\u0641\u0631\u0647\u0627 \u0627\u0634\u062A\u0628\u0627\u0647 \u0627\u0633\u062A.`;
+  }
+  return null;
+}
+
+// server/providers/nerkhsanj.ts
+var import_jalaali_js = __toESM(require_jalaali_js(), 1);
+
+// server/providers/http.ts
+var MAX_BYTES = 2e6;
+async function fetchJson(url, o) {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), o.timeoutMs);
+  try {
+    const res = await o.fetchImpl(url, { signal: ac.signal, headers: { Accept: "application/json", ...o.headers } });
+    if (!res.ok) throw new PriceError("HTTP", `\u0633\u0631\u0648\u06CC\u0633 \u0642\u06CC\u0645\u062A \u0628\u0627 \u06A9\u062F ${res.status} \u067E\u0627\u0633\u062E \u062F\u0627\u062F.`, res.status >= 500 || res.status === 429);
+    const text = await res.text();
+    if (text.length > MAX_BYTES) throw new PriceError("INVALID_RESPONSE", "\u067E\u0627\u0633\u062E \u0633\u0631\u0648\u06CC\u0633 \u0628\u06CC\u0634 \u0627\u0632 \u062D\u062F \u0628\u0632\u0631\u06AF \u0627\u0633\u062A.");
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new PriceError("INVALID_RESPONSE", "\u067E\u0627\u0633\u062E \u0633\u0631\u0648\u06CC\u0633 JSON \u0645\u0639\u062A\u0628\u0631 \u0646\u06CC\u0633\u062A.");
+    }
+  } catch (e) {
+    if (e instanceof PriceError) throw e;
+    if (ac.signal.aborted) throw new PriceError("TIMEOUT", "\u0645\u0647\u0644\u062A \u067E\u0627\u0633\u062E\u200C\u06AF\u0648\u06CC\u06CC \u0633\u0631\u0648\u06CC\u0633 \u0642\u06CC\u0645\u062A \u062A\u0645\u0627\u0645 \u0634\u062F.", true);
+    throw new PriceError("NETWORK", "\u0627\u062A\u0635\u0627\u0644 \u0628\u0647 \u0633\u0631\u0648\u06CC\u0633 \u0642\u06CC\u0645\u062A \u0628\u0631\u0642\u0631\u0627\u0631 \u0646\u0634\u062F.", true);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// server/providers/nerkhsanj.ts
+var jalaali = import_jalaali_js.default;
+var NERKHSANJ_KEY_MAP = {
+  coinFull: "bahar",
+  coinHalf: "half",
+  coinQuarter: "quarter",
+  usd: "dollar",
+  gold18: "gold",
+  gold24: "gold24"
+};
+var PRE86_REASON = "\u0627\u06CC\u0646 \u0633\u0631\u0648\u06CC\u0633 \u0642\u06CC\u0645\u062A \u0645\u0633\u062A\u0642\u0644 \u0628\u0631\u0627\u06CC \u0637\u0631\u062D \xAB\u0642\u0628\u0644 \u0627\u0632 \u06F1\u06F3\u06F8\u06F6\xBB \u0627\u0631\u0627\u0626\u0647 \u0646\u0645\u06CC\u200C\u062F\u0647\u062F\u061B \u0642\u06CC\u0645\u062A \u0637\u0631\u062D \u0645\u0639\u0645\u0648\u0644\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u0622\u0646 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F.";
+var TEHRAN_OFFSET_MIN = 210;
+function parseLiveResponse(body) {
+  if (typeof body !== "object" || body === null) throw new PriceError("INVALID_RESPONSE", "\u0633\u0627\u062E\u062A\u0627\u0631 \u067E\u0627\u0633\u062E \u0633\u0631\u0648\u06CC\u0633 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A.");
+  const b = body;
+  const rates = b.rates;
+  if (typeof rates !== "object" || rates === null || Array.isArray(rates)) {
+    throw new PriceError("INVALID_RESPONSE", "\u067E\u0627\u0633\u062E \u0633\u0631\u0648\u06CC\u0633 \u0641\u0627\u0642\u062F \u0628\u062E\u0634 rates \u0627\u0633\u062A.");
+  }
+  const date = typeof b.date === "string" ? /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/.exec(b.date) : null;
+  if (!date) throw new PriceError("INVALID_RESPONSE", "\u062A\u0627\u0631\u06CC\u062E \u067E\u0627\u0633\u062E \u0633\u0631\u0648\u06CC\u0633 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A.");
+  const [jy, jm, jd] = [Number(date[1]), Number(date[2]), Number(date[3])];
+  if (!jalaali.isValidJalaaliDate(jy, jm, jd)) throw new PriceError("INVALID_RESPONSE", "\u062A\u0627\u0631\u06CC\u062E \u0634\u0645\u0633\u06CC \u067E\u0627\u0633\u062E \u0633\u0631\u0648\u06CC\u0633 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A.");
+  const { gy, gm, gd } = jalaali.toGregorian(jy, jm, jd);
+  const timeStr = typeof b.time === "string" ? b.time.trim() : "";
+  let hh = 0;
+  let mm = 0;
+  let marketClosed = true;
+  if (timeStr !== "") {
+    const t = /^(\d{1,2}):(\d{2})$/.exec(timeStr);
+    if (!t || Number(t[1]) > 23 || Number(t[2]) > 59) throw new PriceError("INVALID_RESPONSE", "\u0633\u0627\u0639\u062A \u067E\u0627\u0633\u062E \u0633\u0631\u0648\u06CC\u0633 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A.");
+    hh = Number(t[1]);
+    mm = Number(t[2]);
+    marketClosed = false;
+  }
+  const observedAt = new Date(Date.UTC(gy, gm - 1, gd, hh, mm) - TEHRAN_OFFSET_MIN * 6e4).toISOString();
+  const r = rates;
+  const prices = {};
+  for (const [ourKey, theirKey] of Object.entries(NERKHSANJ_KEY_MAP)) {
+    const v = r[theirKey];
+    if (typeof v === "number" && Number.isFinite(v) && v > 0) {
+      prices[ourKey] = { value: v, unit: "toman" };
+    }
+  }
+  return { observedAt, marketClosed, usdMarket: "free", prices };
+}
+function createNerkhsanjProvider(opts) {
+  const base = opts.baseUrl.replace(/\/+$/, "");
+  return {
+    id: "nerkhsanj",
+    name: "\u0646\u0631\u062E\u200C\u0633\u0646\u062C (Nerkhsanj)",
+    sourceUrl: `${base}/data/live.json`,
+    attribution: "\u0646\u0631\u062E\u200C\u0633\u0646\u062C",
+    description: "\u0633\u0631\u0648\u06CC\u0633 \u0631\u0627\u06CC\u06AF\u0627\u0646 \u0648 \u0628\u062F\u0648\u0646 \u06A9\u0644\u06CC\u062F\u061B \u0646\u0631\u062E \u0628\u0627\u0632\u0627\u0631 \u0622\u0632\u0627\u062F \u062A\u0647\u0631\u0627\u0646 \u0628\u0647 \u062A\u0648\u0645\u0627\u0646\u060C \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0647\u0631 \u062F\u0642\u06CC\u0642\u0647. \u062D\u062F\u0627\u06A9\u062B\u0631 \u062F\u0642\u06CC\u0642\u0647\u200C\u0627\u06CC \u06CC\u06A9\u200C\u0628\u0627\u0631 \u0627\u0632 \u0622\u0646 \u0628\u062E\u0648\u0627\u0646\u06CC\u062F \u0648 \u0645\u0646\u0628\u0639 \u0631\u0627 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0647\u06CC\u062F.",
+    supportedUsdMarkets: ["free"],
+    declaredUnit: "toman",
+    unavailable: {
+      coinFullPre86: PRE86_REASON,
+      coinHalfPre86: PRE86_REASON,
+      coinQuarterPre86: PRE86_REASON
+    },
+    async fetch(ctx) {
+      const body = await fetchJson(`${base}/data/live.json`, ctx);
+      return parseLiveResponse(body);
+    }
+  };
+}
+
+// server/providers/index.ts
+var DEFAULT_PRICE_API_BASE_URL = "https://nerkh.jahankhahan.shop";
+function createProviders(env = {}) {
+  return [createNerkhsanjProvider({ baseUrl: env.PRICE_API_BASE_URL?.trim() || DEFAULT_PRICE_API_BASE_URL })];
+}
+
 // server/domain/calculator.ts
 function calculate(assets, quotes) {
   const items = [];
@@ -44579,18 +44609,25 @@ function calculate(assets, quotes) {
 
 // server/domain/quotes.ts
 var DIRECT_KEYS = ["coinFull", "coinFullPre86", "coinHalf", "coinHalfPre86", "coinQuarter", "coinQuarterPre86", "usd"];
-function buildQuotes(snapshot, karat) {
+function buildQuotes(snapshot, karat, manual = {}) {
   const quotes = {};
   for (const key of DIRECT_KEYS) {
     const p = snapshot.prices[key];
-    quotes[key] = p ? { priceKey: key, available: true, unitPriceRial: p.rial, rawValue: p.raw, rawUnit: p.rawUnit, derived: false, note: null } : { priceKey: key, available: false, unitPriceRial: null, rawValue: null, rawUnit: null, derived: false, note: snapshot.unavailableReasons[key] ?? "\u0642\u06CC\u0645\u062A \u0627\u0632 \u0627\u0631\u0627\u0626\u0647\u200C\u062F\u0647\u0646\u062F\u0647 \u062F\u0631\u06CC\u0627\u0641\u062A \u0646\u0634\u062F." };
+    const m = key === "usd" ? void 0 : manual[key];
+    if (p) {
+      quotes[key] = { priceKey: key, available: true, unitPriceRial: p.rial, rawValue: p.raw, rawUnit: p.rawUnit, derived: false, note: null, source: "provider", enteredAt: null };
+    } else if (m) {
+      quotes[key] = { priceKey: key, available: true, unitPriceRial: m.rial, rawValue: m.raw, rawUnit: m.rawUnit, derived: false, note: "\u0642\u06CC\u0645\u062A \u062F\u0633\u062A\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u062A\u0648\u0633\u0637 \u0634\u0645\u0627\u061B \u062A\u0648\u0633\u0637 \u0633\u0631\u0648\u06CC\u0633 \u0628\u0647\u200C\u0631\u0648\u0632 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F.", source: "manual", enteredAt: m.enteredAt };
+    } else {
+      quotes[key] = { priceKey: key, available: false, unitPriceRial: null, rawValue: null, rawUnit: null, derived: false, note: snapshot.unavailableReasons[key] ?? "\u0642\u06CC\u0645\u062A \u0627\u0632 \u0627\u0631\u0627\u0626\u0647\u200C\u062F\u0647\u0646\u062F\u0647 \u062F\u0631\u06CC\u0627\u0641\u062A \u0646\u0634\u062F.", source: "provider", enteredAt: null };
+    }
   }
   const g18 = snapshot.prices.gold18;
   const g24 = snapshot.prices.gold24;
   if (karat === 24 && g24) {
-    quotes.gold = { priceKey: "gold", available: true, unitPriceRial: g24.rial, rawValue: g24.raw, rawUnit: g24.rawUnit, derived: false, note: "\u0642\u06CC\u0645\u062A \u0645\u0633\u062A\u0642\u06CC\u0645 \u0647\u0631 \u06AF\u0631\u0645 \u0637\u0644\u0627\u06CC \u06F2\u06F4 \u0639\u06CC\u0627\u0631" };
+    quotes.gold = { priceKey: "gold", available: true, unitPriceRial: g24.rial, rawValue: g24.raw, rawUnit: g24.rawUnit, derived: false, note: "\u0642\u06CC\u0645\u062A \u0645\u0633\u062A\u0642\u06CC\u0645 \u0647\u0631 \u06AF\u0631\u0645 \u0637\u0644\u0627\u06CC \u06F2\u06F4 \u0639\u06CC\u0627\u0631", source: "provider", enteredAt: null };
   } else if (karat === 18 && g18) {
-    quotes.gold = { priceKey: "gold", available: true, unitPriceRial: g18.rial, rawValue: g18.raw, rawUnit: g18.rawUnit, derived: false, note: "\u0642\u06CC\u0645\u062A \u0645\u0633\u062A\u0642\u06CC\u0645 \u0647\u0631 \u06AF\u0631\u0645 \u0637\u0644\u0627\u06CC \u06F1\u06F8 \u0639\u06CC\u0627\u0631" };
+    quotes.gold = { priceKey: "gold", available: true, unitPriceRial: g18.rial, rawValue: g18.raw, rawUnit: g18.rawUnit, derived: false, note: "\u0642\u06CC\u0645\u062A \u0645\u0633\u062A\u0642\u06CC\u0645 \u0647\u0631 \u06AF\u0631\u0645 \u0637\u0644\u0627\u06CC \u06F1\u06F8 \u0639\u06CC\u0627\u0631", source: "provider", enteredAt: null };
   } else if (g18) {
     const derived = new D(g18.rial).times(karat).dividedBy(18);
     quotes.gold = {
@@ -44600,10 +44637,12 @@ function buildQuotes(snapshot, karat) {
       rawValue: g18.raw,
       rawUnit: g18.rawUnit,
       derived: true,
+      source: "provider",
+      enteredAt: null,
       note: `\u0645\u062D\u0627\u0633\u0628\u0647\u200C\u0634\u062F\u0647 \u0627\u0632 \u0642\u06CC\u0645\u062A \u06F1\u06F8 \u0639\u06CC\u0627\u0631 (\xD7 ${karat}/18)\u061B \u0642\u06CC\u0645\u062A \u0645\u0633\u062A\u0642\u0644 \u0628\u0627\u0632\u0627\u0631 \u0628\u0631\u0627\u06CC ${karat} \u0639\u06CC\u0627\u0631 \u0646\u06CC\u0633\u062A \u0648 \u0627\u062C\u0631\u062A/\u0633\u0648\u062F \u0646\u062F\u0627\u0631\u062F.`
     };
   } else {
-    quotes.gold = { priceKey: "gold", available: false, unitPriceRial: null, rawValue: null, rawUnit: null, derived: false, note: snapshot.unavailableReasons.gold18 ?? "\u0642\u06CC\u0645\u062A \u0637\u0644\u0627 \u0627\u0632 \u0627\u0631\u0627\u0626\u0647\u200C\u062F\u0647\u0646\u062F\u0647 \u062F\u0631\u06CC\u0627\u0641\u062A \u0646\u0634\u062F." };
+    quotes.gold = { priceKey: "gold", available: false, unitPriceRial: null, rawValue: null, rawUnit: null, derived: false, note: snapshot.unavailableReasons.gold18 ?? "\u0642\u06CC\u0645\u062A \u0637\u0644\u0627 \u0627\u0632 \u0627\u0631\u0627\u0626\u0647\u200C\u062F\u0647\u0646\u062F\u0647 \u062F\u0631\u06CC\u0627\u0641\u062A \u0646\u0634\u062F.", source: "provider", enteredAt: null };
   }
   return quotes;
 }
@@ -44777,7 +44816,8 @@ async function runCalculation(deps, opts) {
       }
       priceStatus = stale ? "stale" : "fresh";
     }
-    const quotes = buildQuotes(snapshot, settings.goldKarat);
+    const manualDoc = await deps.manual.read();
+    const quotes = buildQuotes(snapshot, settings.goldKarat, manualDoc?.prices ?? {});
     const result = calculate(assets, quotes);
     const entry = {
       id: newHistoryId(now),
@@ -45165,9 +45205,6 @@ function createStoreFromEnv(env, fetchImpl = fetch) {
   return { store: new FileTextStore(resolve(env.DATA_DIR ?? "./data")), kind: "file" };
 }
 
-// shared/types.ts
-var GOLD_KARATS = [24, 22, 21, 18, 14];
-
 // server/storage/settingsStore.ts
 var DEFAULT_SETTINGS = {
   goldKarat: 18,
@@ -45232,6 +45269,7 @@ async function createApp(opts) {
   const history = new HistoryStore(store, opts.maxHistoryEntries);
   const settings = new SettingsStore(store);
   const lastValid = new JsonDoc(store, "last-prices.json");
+  const manual = new JsonDoc(store, "manual-prices.json");
   const auth = createAuth(opts.auth ?? {}, now);
   const prices = new PriceService({
     providers,
@@ -45298,6 +45336,39 @@ async function createApp(opts) {
     if (!parsed.ok) throw new ApiError(400, "INVALID_BACKUP", parsed.errors.join(" "), { errors: parsed.errors });
     res.json(await assets.restore(parsed.assets));
   }));
+  api.get("/manual-prices", wrap(async (_req, res) => {
+    res.json({ prices: (await manual.read())?.prices ?? {} });
+  }));
+  api.put("/manual-prices", wrap(async (req, res) => {
+    const input = req.body?.prices;
+    if (typeof input !== "object" || input === null || Array.isArray(input)) throw new ApiError(400, "INVALID_MANUAL", "\u0633\u0627\u062E\u062A\u0627\u0631 \u0642\u06CC\u0645\u062A\u200C\u0647\u0627\u06CC \u062F\u0633\u062A\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A.");
+    const current = { ...(await manual.read())?.prices ?? {} };
+    const ref = (await prices.getCached())?.prices;
+    const errors = [];
+    for (const [key, v] of Object.entries(input)) {
+      if (!isManualKey(key)) {
+        errors.push(`\u06A9\u0644\u06CC\u062F \u0646\u0627\u0645\u0639\u062A\u0628\u0631: ${key}`);
+        continue;
+      }
+      if (v === null) {
+        delete current[key];
+        continue;
+      }
+      try {
+        const o = v;
+        const mp = buildManualPrice(o.value, o.unit, now());
+        const problem = checkManualAgainst(key, mp, ref);
+        if (problem) errors.push(`${key}: ${problem}`);
+        else current[key] = mp;
+      } catch (e) {
+        if (!(e instanceof InvalidPriceError)) throw e;
+        errors.push(`${key}: ${e.message}`);
+      }
+    }
+    if (errors.length) throw new ApiError(400, "INVALID_MANUAL", errors.join(" "), { errors });
+    await manual.write({ version: 1, prices: current });
+    res.json({ prices: current });
+  }));
   api.get("/settings", wrap(async (_req, res) => {
     res.json(await settings.read());
   }));
@@ -45320,7 +45391,7 @@ async function createApp(opts) {
   api.post("/calculate", wrap(async (req, res) => {
     const mode = req.body?.mode === "cached" ? "cached" : "live";
     const acceptStale = req.body?.acceptStale === true;
-    res.json(await runCalculation({ assets, history, settings, prices, now }, { mode, acceptStale }));
+    res.json(await runCalculation({ assets, history, settings, prices, manual, now }, { mode, acceptStale }));
   }));
   api.get("/history", wrap(async (_req, res) => {
     res.json(await history.list());

@@ -5,6 +5,8 @@ import { ApiError, PriceError } from '../errors';
 import type { AssetsStore } from '../storage/assetsStore';
 import { newHistoryId, type HistoryStore } from '../storage/historyStore';
 import type { SettingsStore } from '../storage/settingsStore';
+import type { JsonDoc } from '../storage/files';
+import type { ManualPrices } from '../../shared/types';
 import type { PriceService } from './priceService';
 
 export interface CalculationDeps {
@@ -12,6 +14,7 @@ export interface CalculationDeps {
   history: HistoryStore;
   settings: SettingsStore;
   prices: PriceService;
+  manual: JsonDoc<{ version: 1; prices: ManualPrices }>;
   now: () => Date;
 }
 
@@ -62,7 +65,8 @@ export async function runCalculation(deps: CalculationDeps, opts: CalculateOptio
       priceStatus = stale ? 'stale' : 'fresh';
     }
 
-    const quotes = buildQuotes(snapshot, settings.goldKarat);
+    const manualDoc = await deps.manual.read();
+    const quotes = buildQuotes(snapshot, settings.goldKarat, manualDoc?.prices ?? {});
     const result = calculate(assets, quotes);
     const entry: HistoryEntry = {
       id: newHistoryId(now),
